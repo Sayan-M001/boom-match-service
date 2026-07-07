@@ -1,0 +1,21 @@
+services:
+  - type: web
+    name: boom-match-service
+    runtime: node
+    plan: starter
+    buildCommand: npm install && npx prisma generate && npm run build
+    startCommand: npx prisma migrate deploy && npm start
+    healthCheckPath: /health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: DATABASE_URL
+        sync: false
+      - key: BOOM_BACKEND_URL
+        sync: false
+      - key: BOOM_MATCH_ADMIN_EMAILS
+        sync: false
+      - key: CORS_ALLOWED_ORIGINS
+        sync: false
+      - key: GEMINI_API_KEY
+        sync: false

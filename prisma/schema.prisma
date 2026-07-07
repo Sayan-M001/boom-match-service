@@ -1,0 +1,475 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id                               Int                                @id
+  email                            String                             @unique
+  name                             String?
+  role                             Role                               @default(USER)
+  isEmailVerified                  Boolean                            @default(true)
+  profilePictureKey                String?
+  createdAt                        DateTime                           @default(now())
+  updatedAt                        DateTime                           @updatedAt
+  AutoCaptureSegment               AutoCaptureSegment[]
+  QuizGameProfile                  QuizGameProfile?
+  QuizCompetitionEntry             QuizCompetitionEntry[]
+  QuizCoinLedger                   QuizCoinLedger[]
+  QuizPendingCoinReward            QuizPendingCoinReward[]
+  QuizUserAchievement              QuizUserAchievement[]
+  QuizRoundHistory                 QuizRoundHistory[]
+  QuizDailyMissionClaim            QuizDailyMissionClaim[]
+  QuizDailyMissionStreakBonusClaim QuizDailyMissionStreakBonusClaim[]
+  QuizWeeklyMissionClaim           QuizWeeklyMissionClaim[]
+  QuizDuelsCreated                 QuizDuel[]                         @relation("QuizDuelInviter")
+  QuizDuelsReceived                QuizDuel[]                         @relation("QuizDuelOpponent")
+  QuizDuelsWon                     QuizDuel[]                         @relation("QuizDuelWinner")
+  QuizDuelStakeLocks               QuizDuelStakeLock[]
+  QuizDuelRounds                   QuizDuelRound[]
+}
+
+model AutoCaptureSegment {
+  id               String   @id @default(cuid())
+  localId          String   @map("local_id")
+  user             User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId           Int      @map("user_id")
+  userEmail        String?  @map("user_email")
+  windowStartAt    DateTime @map("window_start_at")
+  windowEndAt      DateTime @map("window_end_at")
+  title            String
+  surfaceType      String   @map("surface_type")
+  activityKind     String   @map("activity_kind")
+  summary          String
+  entities         Json     @default("[]")
+  subjects         Json     @default("[]")
+  topicHints       Json     @default("[]") @map("topic_hints")
+  evidence         Json     @default("[]")
+  confidence       Float
+  sourceEventCount Int      @default(0) @map("source_event_count")
+  generation       Json
+  createdAt        DateTime @default(now()) @map("created_at")
+  updatedAt        DateTime @updatedAt @map("updated_at")
+
+  @@unique([userId, localId])
+  @@index([userId, windowStartAt])
+  @@index([userId, windowEndAt])
+  @@index([userId, surfaceType])
+  @@index([userId, activityKind])
+  @@map("auto_capture_segments")
+}
+
+model QuizGameProfile {
+  id                     String    @id @default(cuid())
+  userId                 Int       @unique
+  coins                  Int       @default(0)
+  lifetimeCoinsEarned    Int       @default(0)
+  xp                     Int       @default(0)
+  currentLevel           Int       @default(1)
+  dailyRoundsPlayed      Int       @default(0)
+  tournamentRoundsPlayed Int       @default(0)
+  totalRoundsPlayed      Int       @default(0)
+  totalQuestionsAnswered Int       @default(0)
+  totalCorrectAnswers    Int       @default(0)
+  currentStreak          Int       @default(0)
+  bestStreak             Int       @default(0)
+  lastPlayedAt           DateTime?
+  lastDailyCompletedAt   DateTime?
+  ownedWorldIds          String[]  @default(["bg-1"])
+  equippedWorldId        String    @default("bg-1")
+  createdAt              DateTime  @default(now())
+  updatedAt              DateTime  @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model QuizCoinLedger {
+  id            String             @id @default(cuid())
+  userId        Int
+  amount        Int
+  balanceAfter  Int
+  type          QuizCoinLedgerType
+  referenceType String?
+  referenceId   String?
+  metadata      Json?
+  createdAt     DateTime           @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt])
+  @@index([type])
+  @@index([referenceType, referenceId])
+}
+
+model QuizPendingCoinReward {
+  id         String    @id @default(cuid())
+  userId     Int
+  amount     Int
+  sourceType String
+  sourceId   String
+  title      String?
+  metadata   Json?
+  claimedAt  DateTime?
+  createdAt  DateTime  @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, sourceType, sourceId])
+  @@index([userId, claimedAt])
+  @@index([sourceType, sourceId])
+}
+
+model QuizCompetition {
+  id                 String                    @id @default(cuid())
+  name               String
+  slug               String                    @unique
+  mode               QuizCompetitionMode
+  status             QuizCompetitionStatus     @default(DRAFT)
+  visibility         QuizCompetitionVisibility @default(PUBLIC)
+  description        String?
+  shortLabel         String?
+  impactsLeaderboard Boolean                   @default(true)
+  maxEntriesPerUser  Int?
+  rewardCoins        Int                       @default(0)
+  rewardXp           Int                       @default(0)
+  startsAt           DateTime?
+  endsAt             DateTime?
+  rulesConfig        Json?
+  rewardConfig       Json?
+  createdAt          DateTime                  @default(now())
+  updatedAt          DateTime                  @updatedAt
+
+  entries QuizCompetitionEntry[]
+
+  @@index([mode, status])
+  @@index([startsAt, endsAt])
+}
+
+model QuizCompetitionEntry {
+  id                    String                     @id @default(cuid())
+  competitionId         String
+  userId                Int
+  attemptNumber         Int                        @default(1)
+  status                QuizCompetitionEntryStatus @default(IN_PROGRESS)
+  localDate             String?
+  periodStartAt         DateTime?
+  periodEndAt           DateTime?
+  timezoneOffsetMinutes Int?
+  score                 Float?
+  correctAnswers        Int?
+  totalQuestions        Int?
+  durationMs            Int?
+  submittedAt           DateTime?
+  createdAt             DateTime                   @default(now())
+  updatedAt             DateTime                   @updatedAt
+
+  competition QuizCompetition @relation(fields: [competitionId], references: [id], onDelete: Cascade)
+  user        User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([competitionId, userId, attemptNumber])
+  @@unique([competitionId, userId, localDate])
+  @@index([competitionId, status])
+  @@index([competitionId, localDate, status])
+  @@index([userId, createdAt])
+  @@index([submittedAt])
+}
+
+model QuizDuel {
+  id                    String         @id @default(cuid())
+  inviterUserId         Int
+  opponentUserId        Int
+  status                QuizDuelStatus @default(PROPOSED)
+  selectedTimeOptionId  String?        @unique
+  selectedStakeOptionId String?        @unique
+  acceptedAt            DateTime?
+  declinedAt            DateTime?
+  stakeLockDeadlineAt   DateTime?
+  scheduledStartAt      DateTime?
+  joinWindowClosesAt    DateTime?
+  completedAt           DateTime?
+  winnerUserId          Int?
+  expiresAt             DateTime?
+  createdAt             DateTime       @default(now())
+  updatedAt             DateTime       @updatedAt
+
+  inviter             User                  @relation("QuizDuelInviter", fields: [inviterUserId], references: [id], onDelete: Cascade)
+  opponent            User                  @relation("QuizDuelOpponent", fields: [opponentUserId], references: [id], onDelete: Cascade)
+  winner              User?                 @relation("QuizDuelWinner", fields: [winnerUserId], references: [id], onDelete: SetNull)
+  timeOptions         QuizDuelTimeOption[]
+  stakeOptions        QuizDuelStakeOption[]
+  stakeLocks          QuizDuelStakeLock[]
+  rounds              QuizDuelRound[]
+  selectedTimeOption  QuizDuelTimeOption?   @relation("QuizDuelSelectedTime", fields: [selectedTimeOptionId], references: [id], onDelete: SetNull)
+  selectedStakeOption QuizDuelStakeOption?  @relation("QuizDuelSelectedStake", fields: [selectedStakeOptionId], references: [id], onDelete: SetNull)
+
+  @@index([inviterUserId, status, createdAt])
+  @@index([opponentUserId, status, createdAt])
+  @@index([status, createdAt])
+  @@index([status, scheduledStartAt])
+}
+
+model QuizDuelTimeOption {
+  id              String   @id @default(cuid())
+  duelId          String
+  proposedStartAt DateTime
+  createdAt       DateTime @default(now())
+
+  duel           QuizDuel  @relation(fields: [duelId], references: [id], onDelete: Cascade)
+  selectedByDuel QuizDuel? @relation("QuizDuelSelectedTime")
+
+  @@index([duelId, proposedStartAt])
+}
+
+model QuizDuelStakeOption {
+  id         String   @id @default(cuid())
+  duelId     String
+  coinAmount Int
+  createdAt  DateTime @default(now())
+
+  duel           QuizDuel  @relation(fields: [duelId], references: [id], onDelete: Cascade)
+  selectedByDuel QuizDuel? @relation("QuizDuelSelectedStake")
+
+  @@index([duelId, coinAmount])
+}
+
+model QuizDuelStakeLock {
+  id         String    @id @default(cuid())
+  duelId     String
+  userId     Int
+  coinAmount Int
+  lockedAt   DateTime  @default(now())
+  refundedAt DateTime?
+
+  duel QuizDuel @relation(fields: [duelId], references: [id], onDelete: Cascade)
+  user User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([duelId, userId])
+  @@index([duelId, lockedAt])
+  @@index([userId, lockedAt])
+}
+
+model QuizDuelRound {
+  id                    String              @id @default(cuid())
+  duelId                String
+  userId                Int
+  status                QuizDuelRoundStatus @default(IN_PROGRESS)
+  roundPayload          Json
+  questionWindowStartAt DateTime
+  questionWindowEndAt   DateTime
+  score                 Float?
+  correctAnswers        Int?
+  totalQuestions        Int?
+  durationMs            Int?
+  startedAt             DateTime            @default(now())
+  submittedAt           DateTime?
+  createdAt             DateTime            @default(now())
+  updatedAt             DateTime            @updatedAt
+
+  duel QuizDuel @relation(fields: [duelId], references: [id], onDelete: Cascade)
+  user User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([duelId, userId])
+  @@index([duelId, status])
+  @@index([userId, startedAt])
+}
+
+model QuizUserAchievement {
+  id            String   @id @default(cuid())
+  userId        Int
+  achievementId String
+  unlockedAt    DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, achievementId])
+  @@index([userId])
+}
+
+model QuizSystemState {
+  key       String   @id
+  value     String
+  updatedAt DateTime @updatedAt
+}
+
+model QuizRoundHistory {
+  id             String   @id @default(cuid())
+  userId         Int
+  matchId        String   @unique
+  source         Json
+  craft          String
+  answers        Json
+  puzzles        Json
+  totalMs        Int
+  expectedMs     Int
+  accuracy       Float
+  benchmarkDelta Float
+  insight        String
+  completedAt    DateTime
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([completedAt])
+}
+
+model QuizDailyMissionTemplate {
+  id                  String                        @id @default(cuid())
+  slug                String                        @unique
+  title               String
+  description         String
+  objectiveType       QuizDailyMissionObjectiveType
+  targetValue         Int
+  minimumScorePercent Int?
+  rewardXp            Int                           @default(0)
+  rewardCoins         Int                           @default(0)
+  sortOrder           Int                           @default(0)
+  isActive            Boolean                       @default(true)
+  startsAt            DateTime?
+  endsAt              DateTime?
+  rulesConfig         Json?
+  createdAt           DateTime                      @default(now())
+  updatedAt           DateTime                      @updatedAt
+  claims              QuizDailyMissionClaim[]
+
+  @@index([isActive, sortOrder])
+  @@index([startsAt, endsAt])
+}
+
+model QuizDailyMissionClaim {
+  id                String                   @id @default(cuid())
+  dayStartAt        DateTime
+  claimedAt         DateTime                 @default(now())
+  rewardXp          Int                      @default(0)
+  rewardCoins       Int                      @default(0)
+  missionTemplate   QuizDailyMissionTemplate @relation(fields: [missionTemplateId], references: [id], onDelete: Cascade)
+  missionTemplateId String
+  user              User                     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId            Int
+
+  @@unique([userId, missionTemplateId, dayStartAt])
+  @@index([userId, dayStartAt])
+}
+
+model QuizDailyMissionStreakBonusClaim {
+  id           String   @id @default(cuid())
+  dayStartAt   DateTime
+  streakLength Int
+  rewardCoins  Int      @default(0)
+  claimedAt    DateTime @default(now())
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId       Int
+
+  @@unique([userId, dayStartAt])
+  @@index([userId, claimedAt])
+}
+
+model QuizWeeklyMissionTemplate {
+  id                  String                         @id @default(cuid())
+  slug                String                         @unique
+  title               String
+  description         String
+  objectiveType       QuizWeeklyMissionObjectiveType
+  targetValue         Int
+  minimumScorePercent Int?
+  rewardXp            Int                            @default(0)
+  rewardCoins         Int                            @default(0)
+  sortOrder           Int                            @default(0)
+  isActive            Boolean                        @default(true)
+  startsAt            DateTime?
+  endsAt              DateTime?
+  rulesConfig         Json?
+  createdAt           DateTime                       @default(now())
+  updatedAt           DateTime                       @updatedAt
+  claims              QuizWeeklyMissionClaim[]
+
+  @@index([isActive, sortOrder])
+  @@index([startsAt, endsAt])
+}
+
+model QuizWeeklyMissionClaim {
+  id                String                    @id @default(cuid())
+  weekStartAt       DateTime
+  claimedAt         DateTime                  @default(now())
+  rewardXp          Int                       @default(0)
+  rewardCoins       Int                       @default(0)
+  missionTemplate   QuizWeeklyMissionTemplate @relation(fields: [missionTemplateId], references: [id], onDelete: Cascade)
+  missionTemplateId String
+  user              User                      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId            Int
+
+  @@unique([userId, missionTemplateId, weekStartAt])
+  @@index([userId, weekStartAt])
+}
+
+enum Role {
+  USER
+  ADMIN
+}
+
+enum QuizCompetitionMode {
+  DAILY_CHALLENGE
+  TOURNAMENT
+}
+
+enum QuizDuelStatus {
+  PROPOSED
+  AWAITING_STAKES
+  SCHEDULED
+  LIVE
+  COMPLETED
+  DECLINED
+  EXPIRED
+  CANCELLED
+}
+
+enum QuizDuelRoundStatus {
+  IN_PROGRESS
+  SCORED
+  EXPIRED
+}
+
+enum QuizCompetitionStatus {
+  DRAFT
+  SCHEDULED
+  ACTIVE
+  CLOSED
+  CANCELLED
+}
+
+enum QuizCompetitionVisibility {
+  PUBLIC
+  PRIVATE
+}
+
+enum QuizCompetitionEntryStatus {
+  IN_PROGRESS
+  SCORED
+  DISQUALIFIED
+  EXPIRED
+}
+
+enum QuizCoinLedgerType {
+  INITIAL_GRANT
+  COMPETITION_REWARD
+  DUEL_PAYOUT
+  ADMIN_ADJUSTMENT
+  PURCHASE
+  SPEND
+  REFUND
+}
+
+enum QuizDailyMissionObjectiveType {
+  DAILY_ROUNDS_COMPLETED
+  TOURNAMENT_ROUNDS_COMPLETED
+  SCORED_ROUNDS_AT_OR_ABOVE_PERCENT
+}
+
+enum QuizWeeklyMissionObjectiveType {
+  DAILY_ROUNDS_COMPLETED
+  TOURNAMENT_ROUNDS_COMPLETED
+  SCORED_ROUNDS_AT_OR_ABOVE_PERCENT
+}
