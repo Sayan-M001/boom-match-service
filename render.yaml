@@ -2,7 +2,7 @@ services:
   - type: web
     name: boom-match-service
     runtime: node
-    plan: starter
+    plan: free
     buildCommand: npm install && npx prisma generate && npm run build
     startCommand: npx prisma migrate deploy && npm start
     healthCheckPath: /health
