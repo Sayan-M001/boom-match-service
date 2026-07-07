@@ -204,8 +204,8 @@ model QuizDuel {
   stakeOptions        QuizDuelStakeOption[]
   stakeLocks          QuizDuelStakeLock[]
   rounds              QuizDuelRound[]
-  selectedTimeOption  QuizDuelTimeOption?   @relation("QuizDuelSelectedTime", fields: [selectedTimeOptionId], references: [id], onDelete: SetNull)
-  selectedStakeOption QuizDuelStakeOption?  @relation("QuizDuelSelectedStake", fields: [selectedStakeOptionId], references: [id], onDelete: SetNull)
+  selectedTimeOption  QuizDuelTimeOption?   @relation("QuizDuelSelectedTime", fields: [selectedTimeOptionId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  selectedStakeOption QuizDuelStakeOption?  @relation("QuizDuelSelectedStake", fields: [selectedStakeOptionId], references: [id], onDelete: Restrict, onUpdate: Restrict)
 
   @@index([inviterUserId, status, createdAt])
   @@index([opponentUserId, status, createdAt])
