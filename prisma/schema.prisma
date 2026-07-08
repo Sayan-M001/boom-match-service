@@ -54,7 +54,7 @@ model AutoCaptureSegment {
   sourceEventCount Int      @default(0) @map("source_event_count")
   generation       Json
   createdAt        DateTime @default(now()) @map("created_at")
-  updatedAt        DateTime @updatedAt @map("updated_at")
+  updatedAt        DateTime @default(now()) @updatedAt @map("updated_at")
 
   @@unique([userId, localId])
   @@index([userId, windowStartAt])
